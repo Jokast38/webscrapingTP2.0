@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche d'articles - Blog du Modérateur</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 5px;
+            min-width: 150px;
+            text-align: center;
+        }
+        .search-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .search-form {
+            display: grid;
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input, select, button {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        input:focus, select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .article-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        .article-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .article-meta {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #666;
+            flex-wrap: wrap;
+        }
+        .article-summary {
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .article-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .article-link:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .stats {
+                flex-direction: column;
+            }
+            .article-meta {
+                flex-direction: column;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Recherche d'articles</h1>
+        <p>Blog du Modérateur - Interface de recherche</p>
+        
+        {% if stats %}
+        <div class="stats">
+            <div class="stat-item">
+                <div style="font-size: 2em;">{{ stats.total_articles }}</div>
+                <div>Articles</div>
+            </div>
+            <div class="stat-item">
+                <div style="font-size: 2em;">{{ stats.categories_count }}</div>
+                <div>Catégories</div>
+            </div>
+            <div class="stat-item">
+                <div style="font-size: 2em;">{{ stats.authors_count }}</div>
+                <div>Auteurs</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="search-container">
+        <h2>Rechercher des articles</h2>
+        
+        <form class="search-form" id="searchForm">
+            <div class="form-group">
+                <label for="search_type">Type de recherche :</label>
+                <select id="search_type" name="search_type" onchange="toggleSearchFields()">
+                    <option value="">-- Choisir un type de recherche --</option>
+                    <option value="category">Par catégorie</option>
+                    <option value="author">Par auteur</option>
+                    <option value="date">Par plage de dates</option>
+                    <option value="title">Dans les titres</option>
+                </select>
+            </div>
+
+            <!-- Recherche par catégorie -->
+            <div class="form-group" id="category_search" style="display: none;">
+                <label for="category">Catégorie :</label>
+                <select id="category" name="category">
+                    <option value="">-- Choisir une catégorie --</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Recherche par auteur -->
+            <div class="form-group" id="author_search" style="display: none;">
+                <label for="author">Auteur :</label>
+                <select id="author" name="author">
+                    <option value="">-- Choisir un auteur --</option>
+                    {% for auth in authors %}
+                    <option value="{{ auth }}">{{ auth }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Recherche par date -->
+            <div id="date_search" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start_date">Date de début :</label>
+                        <input type="date" id="start_date" name="start_date">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">Date de fin :</label>
+                        <input type="date" id="end_date" name="end_date">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recherche dans les titres -->
+            <div class="form-group" id="title_search" style="display: none;">
+                <label for="title_search_input">Rechercher dans les titres :</label>
+                <input type="text" id="title_search_input" name="title_search" placeholder="Entrez un mot-clé...">
+            </div>
+
+            <button type="submit">🔍 Rechercher</button>
+        </form>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <script>
+        function toggleSearchFields() {
+            const searchType = document.getElementById('search_type').value;
+            
+            // Cacher tous les champs de recherche
+            document.getElementById('category_search').style.display = 'none';
+            document.getElementById('author_search').style.display = 'none';
+            document.getElementById('date_search').style.display = 'none';
+            document.getElementById('title_search').style.display = 'none';
+            
+            // Afficher le champ correspondant
+            if (searchType) {
+                document.getElementById(searchType + '_search').style.display = 'block';
+            }
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const resultsDiv = document.getElementById('results');
+            
+            // Afficher un indicateur de chargement
+            resultsDiv.innerHTML = '<div class="loading">🔄 Recherche en cours...</div>';
+            
+            fetch('/search', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayResults(data.articles, data.count);
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">❌ Erreur: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                resultsDiv.innerHTML = `<div class="error">❌ Erreur de connexion: ${error}</div>`;
+            });
+        });
+
+        function displayResults(articles, count) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (articles.length === 0) {
+                resultsDiv.innerHTML = '<div class="error">❌ Aucun article trouvé.</div>';
+                return;
+            }
+
+            let html = `<div class="success">✅ ${count} article(s) trouvé(s)</div>`;
+            
+            articles.forEach(article => {
+                html += `
+                    <div class="article-card">
+                        <div class="article-title">${article.title}</div>
+                        <div class="article-meta">
+                            <span><strong>📂 Catégorie:</strong> ${article.subcategory}</span>
+                            <span><strong>✍️ Auteur:</strong> ${article.author}</span>
+                            <span><strong>📅 Date:</strong> ${article.date}</span>
+                            <span><strong>🖼️ Images:</strong> ${article.images_count}</span>
+                        </div>
+                        <div class="article-summary">${article.summary}</div>
+                        <a href="${article.url}" target="_blank" class="article-link">➡️ Lire l'article complet</a>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
