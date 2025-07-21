@@ -137,6 +137,18 @@
             border-radius: 5px;
             margin: 10px 0;
         }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin: 2px;
+            color: white;
+        }
+        .badge-primary { background: #007bff; }
+        .badge-secondary { background: #6c757d; }
+        .badge-info { background: #17a2b8; }
+        .badge-success { background: #28a745; }
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -160,15 +172,19 @@
         <div class="stats">
             <div class="stat-item">
                 <div style="font-size: 2em;">{{ stats.total_articles }}</div>
-                <div>Articles</div>
+                <div>📰 Articles</div>
             </div>
             <div class="stat-item">
                 <div style="font-size: 2em;">{{ stats.categories_count }}</div>
-                <div>Catégories</div>
+                <div>🏷️ Catégories</div>
+            </div>
+            <div class="stat-item">
+                <div style="font-size: 2em;">{{ stats.subcategories_count }}</div>
+                <div>🔖 Sous-catégories</div>
             </div>
             <div class="stat-item">
                 <div style="font-size: 2em;">{{ stats.authors_count }}</div>
-                <div>Auteurs</div>
+                <div>✍️ Auteurs</div>
             </div>
         </div>
         {% endif %}
@@ -182,20 +198,42 @@
                 <label for="search_type">Type de recherche :</label>
                 <select id="search_type" name="search_type" onchange="toggleSearchFields()">
                     <option value="">-- Choisir un type de recherche --</option>
-                    <option value="category">Par catégorie</option>
-                    <option value="author">Par auteur</option>
-                    <option value="date">Par plage de dates</option>
-                    <option value="title">Dans les titres</option>
+                    <option value="category">🏷️ Par catégorie</option>
+                    <option value="subcategory">🔖 Par sous-catégorie</option>
+                    <option value="author">✍️ Par auteur</option>
+                    <option value="date">📅 Par plage de dates</option>
+                    <option value="title">📝 Dans les titres</option>
                 </select>
             </div>
 
             <!-- Recherche par catégorie -->
             <div class="form-group" id="category_search" style="display: none;">
-                <label for="category">Catégorie :</label>
-                <select id="category" name="category">
-                    <option value="">-- Choisir une catégorie --</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat }}">{{ cat }}</option>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="category">Catégorie :</label>
+                        <select id="category" name="category" onchange="loadSubcategories()">
+                            <option value="">-- Choisir une catégorie --</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="category_subcategory">Sous-catégorie (optionnel) :</label>
+                        <select id="category_subcategory" name="category_subcategory" disabled>
+                            <option value="">-- Choisir d'abord une catégorie --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recherche par sous-catégorie -->
+            <div class="form-group" id="subcategory_search" style="display: none;">
+                <label for="subcategory">Sous-catégorie :</label>
+                <select id="subcategory" name="subcategory">
+                    <option value="">-- Choisir une sous-catégorie --</option>
+                    {% for subcat in subcategories %}
+                    <option value="{{ subcat }}">{{ subcat }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -238,69 +276,298 @@
     <div id="results" class="results"></div>
 
     <script>
+        // Stocker toutes les sous-catégories disponibles (correction de la syntaxe Jinja2)
+        const allSubcategories = [
+            {% for subcat in subcategories %}
+                "{{ subcat|replace('"', '\\"') }}"{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        console.log('📦 Sous-catégories chargées:', allSubcategories.length);
+
+        // Mapping des catégories vers leurs sous-catégories avec filtrage plus précis
+        const categorySubcategoriesMapping = {
+            'Web': allSubcategories.filter(sub => {
+                const subLower = sub.toLowerCase();
+                return subLower.includes('web') || 
+                       subLower.includes('javascript') || 
+                       subLower.includes('html') || 
+                       subLower.includes('css') || 
+                       subLower.includes('react') || 
+                       subLower.includes('vue') || 
+                       subLower.includes('angular') || 
+                       subLower.includes('node') || 
+                       subLower.includes('développement') || 
+                       subLower.includes('development') || 
+                       subLower.includes('frontend') || 
+                       subLower.includes('backend') ||
+                       subLower.includes('php') ||
+                       subLower.includes('python') ||
+                       subLower.includes('java');
+            }),
+            
+            'Marketing': allSubcategories.filter(sub => {
+                const subLower = sub.toLowerCase();
+                return subLower.includes('marketing') || 
+                       subLower.includes('seo') || 
+                       subLower.includes('publicité') || 
+                       subLower.includes('pub') || 
+                       subLower.includes('growth') || 
+                       subLower.includes('email') || 
+                       subLower.includes('conversion') || 
+                       subLower.includes('analytics') || 
+                       subLower.includes('content') ||
+                       subLower.includes('brand') ||
+                       subLower.includes('campaign');
+            }),
+            
+            'Social': allSubcategories.filter(sub => {
+                const subLower = sub.toLowerCase();
+                return subLower.includes('social') || 
+                       subLower.includes('facebook') || 
+                       subLower.includes('twitter') || 
+                       subLower.includes('instagram') || 
+                       subLower.includes('linkedin') || 
+                       subLower.includes('tiktok') || 
+                       subLower.includes('youtube') || 
+                       subLower.includes('snapchat') ||
+                       subLower.includes('réseau') ||
+                       subLower.includes('community') ||
+                       subLower.includes('influence');
+            }),
+            
+            'Tech': allSubcategories.filter(sub => {
+                const subLower = sub.toLowerCase();
+                return subLower.includes('tech') || 
+                       subLower.includes('technologie') || 
+                       subLower.includes('innovation') || 
+                       subLower.includes('startup') || 
+                       subLower.includes('ia') || 
+                       subLower.includes('ai') ||
+                       subLower.includes('intelligence artificielle') || 
+                       subLower.includes('machine learning') || 
+                       subLower.includes('blockchain') || 
+                       subLower.includes('google') || 
+                       subLower.includes('apple') || 
+                       subLower.includes('microsoft') ||
+                       subLower.includes('amazon') ||
+                       subLower.includes('meta') ||
+                       subLower.includes('crypto');
+            })
+        };
+
+        // Afficher le mapping dans la console pour debug
+        console.log('🎯 Mapping des catégories:', {
+            'Web': categorySubcategoriesMapping['Web'].length,
+            'Marketing': categorySubcategoriesMapping['Marketing'].length,
+            'Social': categorySubcategoriesMapping['Social'].length,
+            'Tech': categorySubcategoriesMapping['Tech'].length
+        });
+
         function toggleSearchFields() {
             const searchType = document.getElementById('search_type').value;
             
             // Cacher tous les champs de recherche
-            document.getElementById('category_search').style.display = 'none';
-            document.getElementById('author_search').style.display = 'none';
-            document.getElementById('date_search').style.display = 'none';
-            document.getElementById('title_search').style.display = 'none';
+            const searchFields = ['category_search', 'subcategory_search', 'author_search', 'date_search', 'title_search'];
+            searchFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    element.style.display = 'none';
+                }
+            });
+            
+            // Réinitialiser les sous-catégories quand on change de type
+            if (searchType !== 'category') {
+                resetSubcategories();
+            }
             
             // Afficher le champ correspondant
             if (searchType) {
-                document.getElementById(searchType + '_search').style.display = 'block';
+                const targetField = document.getElementById(searchType + '_search');
+                if (targetField) {
+                    targetField.style.display = 'block';
+                }
             }
         }
 
-        document.getElementById('searchForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        function loadSubcategories() {
+            const categorySelect = document.getElementById('category');
+            const subcategorySelect = document.getElementById('category_subcategory');
             
-            const formData = new FormData(this);
-            const resultsDiv = document.getElementById('results');
+            if (!categorySelect || !subcategorySelect) {
+                console.error('❌ Éléments de sélection introuvables');
+                return;
+            }
             
-            // Afficher un indicateur de chargement
-            resultsDiv.innerHTML = '<div class="loading">🔄 Recherche en cours...</div>';
+            const selectedCategory = categorySelect.value;
+            console.log(`🔍 Chargement sous-catégories pour: "${selectedCategory}"`);
             
-            fetch('/search', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayResults(data.articles, data.count);
-                } else {
-                    resultsDiv.innerHTML = `<div class="error">❌ Erreur: ${data.error}</div>`;
-                }
-            })
-            .catch(error => {
-                resultsDiv.innerHTML = `<div class="error">❌ Erreur de connexion: ${error}</div>`;
-            });
+            if (!selectedCategory) {
+                resetSubcategories();
+                return;
+            }
+            
+            // Désactiver temporairement et afficher un loading
+            subcategorySelect.disabled = true;
+            subcategorySelect.innerHTML = '<option value="">🔄 Chargement...</option>';
+            
+            // Récupérer les sous-catégories via l'API (utilise maintenant les vraies catégories)
+            const apiUrl = `/api/subcategories/${selectedCategory}`;
+            console.log(`📡 Appel API: ${apiUrl}`);
+            
+            fetch(apiUrl)
+                .then(response => {
+                    console.log(`📨 Réponse reçue: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`📦 Données reçues:`, data);
+                    
+                    if (data.success) {
+                        // Remplir le select des sous-catégories
+                        subcategorySelect.innerHTML = '<option value="">-- Toutes les sous-catégories --</option>';
+                        
+                        if (data.subcategories && data.subcategories.length > 0) {
+                            data.subcategories.forEach(subcat => {
+                                const option = document.createElement('option');
+                                option.value = subcat;
+                                option.textContent = subcat;
+                                subcategorySelect.appendChild(option);
+                            });
+                            
+                            subcategorySelect.disabled = false;
+                            console.log(`✅ ${data.count} sous-catégories chargées pour ${selectedCategory}`);
+                        } else {
+                            subcategorySelect.innerHTML = '<option value="">-- Aucune sous-catégorie disponible --</option>';
+                            subcategorySelect.disabled = true;
+                            console.log(`⚠️ Aucune sous-catégorie trouvée pour ${selectedCategory}`);
+                        }
+                    } else {
+                        console.error(`❌ Erreur API:`, data.error);
+                        subcategorySelect.innerHTML = '<option value="">❌ Erreur de chargement</option>';
+                        subcategorySelect.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors du chargement des sous-catégories:', error);
+                    subcategorySelect.innerHTML = '<option value="">❌ Erreur de connexion</option>';
+                    subcategorySelect.disabled = true;
+                });
+        }
+
+        function resetSubcategories() {
+            const subcategorySelect = document.getElementById('category_subcategory');
+            if (subcategorySelect) {
+                subcategorySelect.innerHTML = '<option value="">-- Choisir d\'abord une catégorie --</option>';
+                subcategorySelect.disabled = true;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Interface chargée');
+            
+            // Initialiser le formulaire
+            const searchForm = document.getElementById('searchForm');
+            if (searchForm) {
+                searchForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const resultsDiv = document.getElementById('results');
+                    
+                    if (!resultsDiv) {
+                        console.error('❌ Zone de résultats introuvable');
+                        return;
+                    }
+                    
+                    // Afficher un indicateur de chargement
+                    resultsDiv.innerHTML = '<div class="loading">🔄 Recherche en cours...</div>';
+                    
+                    console.log('🔍 Envoi de la recherche...');
+                    
+                    fetch('/search', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log(`📨 Réponse reçue: ${response.status}`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('📦 Données reçues:', data);
+                        if (data.success) {
+                            displayResults(data.articles, data.count);
+                        } else {
+                            resultsDiv.innerHTML = `<div class="error">❌ Erreur: ${data.error}</div>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Erreur lors de la recherche:', error);
+                        resultsDiv.innerHTML = `<div class="error">❌ Erreur de connexion: ${error.message}</div>`;
+                    });
+                });
+            }
         });
 
         function displayResults(articles, count) {
             const resultsDiv = document.getElementById('results');
+            
+            if (!resultsDiv) {
+                console.error('❌ Zone de résultats introuvable');
+                return;
+            }
             
             if (articles.length === 0) {
                 resultsDiv.innerHTML = '<div class="error">❌ Aucun article trouvé.</div>';
                 return;
             }
 
+            console.log(`✅ Affichage de ${count} article(s)`);
+            
             let html = `<div class="success">✅ ${count} article(s) trouvé(s)</div>`;
             
-            articles.forEach(article => {
+            articles.forEach((article, index) => {
+                // Échapper les caractères HTML pour éviter les problèmes d'affichage
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+
+                // Affichage des badges pour catégories et sous-catégories
+                let categoriesBadges = '';
+                if (article.categories && Array.isArray(article.categories) && article.categories.length > 0) {
+                    categoriesBadges = article.categories.map(cat => 
+                        `<span class="badge badge-secondary">${escapeHtml(cat)}</span>`
+                    ).join('');
+                }
+                
+                let subcategoriesBadges = '';
+                if (article.subcategories && Array.isArray(article.subcategories) && article.subcategories.length > 0) {
+                    subcategoriesBadges = article.subcategories.map(subcat => 
+                        `<span class="badge badge-info">${escapeHtml(subcat)}</span>`
+                    ).join('');
+                }
+
                 html += `
                     <div class="article-card">
-                        <div class="article-title">${article.title}</div>
+                        <div class="article-title">${escapeHtml(article.title || 'Sans titre')}</div>
                         <div class="article-meta">
-                            <span><strong>📂 Catégorie:</strong> ${article.subcategory}</span>
-                            <span><strong>✍️ Auteur:</strong> ${article.author}</span>
-                            <span><strong>📅 Date:</strong> ${article.date}</span>
-                            <span><strong>🖼️ Images:</strong> ${article.images_count}</span>
+                            <span><strong>🏷️ Tag principal:</strong> <span class="badge badge-success">${escapeHtml(article.subcategory || 'N/A')}</span></span>
+                            <span><strong>✍️ Auteur:</strong> ${escapeHtml(article.author || 'N/A')}</span>
+                            <span><strong>📅 Date:</strong> ${escapeHtml(article.date || 'N/A')}</span>
+                            <span><strong>🖼️ Images:</strong> ${article.images_count || 0}</span>
                         </div>
-                        <div class="article-summary">${article.summary}</div>
-                        <a href="${article.url}" target="_blank" class="article-link">➡️ Lire l'article complet</a>
+                        ${categoriesBadges ? `<div style="margin-bottom: 10px;"><strong>🏷️ Catégories:</strong> ${categoriesBadges}</div>` : ''}
+                        ${subcategoriesBadges ? `<div style="margin-bottom: 10px;"><strong>🔖 Sous-catégories:</strong> ${subcategoriesBadges}</div>` : ''}
+                        <div class="article-summary">${escapeHtml(article.summary || 'Pas de résumé')}</div>
+                        <a href="${escapeHtml(article.url || '#')}" target="_blank" class="article-link">➡️ Lire l'article complet</a>
                     </div>
                 `;
             });
